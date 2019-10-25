@@ -5,6 +5,7 @@ import os
 import glob
 import skimage.io as io
 import skimage.transform as trans
+import cv2
 
 Sky = [128,128,128]
 Building = [128,0,0]
@@ -77,9 +78,11 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict,image
         seed = seed)
     train_generator = zip(image_generator, mask_generator)
     for (img,mask) in train_generator:
-        print(img.shape)
-        print(mask.shape)
+        # cv2.imwrite("./tmp/img.png", img[0])
+        # cv2.imwrite("./tmp/mask.png", mask[0])
         img,mask = adjustData(img,mask,flag_multi_class,num_class)
+        # cv2.imwrite("./tmp/img_adjust.png", img[0])
+        # cv2.imwrite("./tmp/mask_adjust.png", mask[0])
         yield (img,mask)
 
 
@@ -123,4 +126,4 @@ def labelVisualize(num_class,color_dict,img):
 def saveResult(save_path,npyfile,flag_multi_class = False,num_class = 2):
     for i,item in enumerate(npyfile):
         img = labelVisualize(num_class,COLOR_DICT,item) if flag_multi_class else item[:,:,0]
-        io.imsave(os.path.join(save_path,"%d_predict.bmp"%i),img)
+        io.imsave(os.path.join(save_path,"%d_predict.png"%i),img)
