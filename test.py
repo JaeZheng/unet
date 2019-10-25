@@ -4,30 +4,37 @@
 # @Time    : 2019/10/22 21:04
 # @File    : test.py
 
-import keras as K
-import tensorflow as tf
 import cv2
+import numpy as np
 
 
-def mean_iou(y_true, y_pred):
-    nb_classes = K.int_shape(y_pred)[-1]
-    y_pred = K.reshape(y_pred, (-1, nb_classes))
-    y_true = tf.to_int32(K.reshape(y_true, (-1, 1))[:,0])
-    y_true = K.one_hot(y_true, nb_classes)
-    true_pixels = K.argmax(y_true, axis=-1) # exclude background
-    pred_pixels = K.argmax(y_pred, axis=-1)
-    iou = []
-    flag = tf.convert_to_tensor(-1, dtype='float64')
-    for i in range(nb_classes-1):
-        true_labels = K.equal(true_pixels, i)
-        pred_labels = K.equal(pred_pixels, i)
-        inter = tf.to_int32(true_labels & pred_labels)
-        union = tf.to_int32(true_labels | pred_labels)
-        cond = (K.sum(union) > 0) & (K.sum(tf.to_int32(true_labels)) > 0)
-        res = tf.cond(cond, lambda: K.sum(inter)/K.sum(union), lambda: flag)
-        iou.append(res)
-    iou = tf.stack(iou)
-    legal_labels = tf.greater(iou, flag)
-    iou = tf.gather(iou, indices=tf.where(legal_labels))
-    return K.mean(iou)
+def iou(y_true, y_pred):
+    TP, FP, FN = 0, 0, 0
+    h, w = y_pred.shape
+    for row in range(h):
+        for col in range(w):
+            cur_pixel = y_pred[row][col]
+            if cur_pixel == 255:
+                if y_true[row][col] == cur_pixel:
+                    TP += 1
+                else:
+                    FP += 1
+            elif cur_pixel == 0 and y_true[row][col] == 255:
+                FN += 1
+    return TP/(TP+FP+FN)
 
+
+def iou_2(y_true, y_pred):
+    y_true_mask = (y_true == 255)
+    y_pred_mask = (y_pred == 255)
+    iou = np.sum(y_true_mask & y_pred_mask) / np.sum(y_true_mask | y_pred_mask)
+    return iou
+
+mean_iou = []
+for i in range(159):
+    y_true = cv2.imread("./data/thyroid/test_true/"+str(i)+".bmp", cv2.IMREAD_GRAYSCALE)
+    y_pred = cv2.imread("./data/thyroid/test/"+str(i)+"_predict.png", cv2.IMREAD_GRAYSCALE)
+    y_pred[y_pred[:,:]<127] = 0
+    y_pred[y_pred[:,:]>=127] = 255
+    mean_iou.append(iou(y_true, y_pred))
+print(np.mean(mean_iou))
