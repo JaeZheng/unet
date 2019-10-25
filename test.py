@@ -9,22 +9,6 @@ import numpy as np
 
 
 def iou(y_true, y_pred):
-    TP, FP, FN = 0, 0, 0
-    h, w = y_pred.shape
-    for row in range(h):
-        for col in range(w):
-            cur_pixel = y_pred[row][col]
-            if cur_pixel == 255:
-                if y_true[row][col] == cur_pixel:
-                    TP += 1
-                else:
-                    FP += 1
-            elif cur_pixel == 0 and y_true[row][col] == 255:
-                FN += 1
-    return TP/(TP+FP+FN)
-
-
-def iou_2(y_true, y_pred):
     y_true_mask = (y_true == 255)
     y_pred_mask = (y_pred == 255)
     iou = np.sum(y_true_mask & y_pred_mask) / np.sum(y_true_mask | y_pred_mask)
