@@ -15,8 +15,8 @@ def iou(y_true, y_pred):
     return iou
 
 mean_iou = []
-for i in range(159):
-    y_true = cv2.imread("./data/thyroid/test_true/"+str(i)+".bmp", cv2.IMREAD_GRAYSCALE)
+for i in range(59):
+    y_true = cv2.imread("./data/thyroid/test/"+str(i)+"_true.bmp", cv2.IMREAD_GRAYSCALE)
     y_pred = cv2.imread("./data/thyroid/test/"+str(i)+"_predict.png", cv2.IMREAD_GRAYSCALE)
     y_pred[y_pred[:,:]<127] = 0
     y_pred[y_pred[:,:]>=127] = 255
