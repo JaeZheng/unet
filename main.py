@@ -21,7 +21,7 @@ data_gen_args = dict(rotation_range=0.2,
                     horizontal_flip=True,
                     fill_mode='nearest')
 # data_gen_args = dict()
-myGene = trainGenerator(2,'data/thyroid/train','image','label',data_gen_args,save_to_dir = None)
+myGene = trainGenerator(4,'data/thyroid/train','image','label',data_gen_args,save_to_dir = None)
 
 model = unet()
 model_checkpoint = ModelCheckpoint('unet_thyroid.hdf5', monitor='loss',verbose=1, save_best_only=True)

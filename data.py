@@ -38,10 +38,18 @@ def adjustData(img,mask,flag_multi_class,num_class):
         new_mask = np.reshape(new_mask,(new_mask.shape[0],new_mask.shape[1]*new_mask.shape[2],new_mask.shape[3])) if flag_multi_class else np.reshape(new_mask,(new_mask.shape[0]*new_mask.shape[1],new_mask.shape[2]))
         mask = new_mask
     elif(np.max(img) > 1):
-        img = img / 255
-        mask = mask /255
-        # mask[mask > 0.5] = 1
-        # mask[mask <= 0.5] = 0
+        # 减去每个batch的图像的均值
+        sum = 0
+        count = 0
+        for per_img in img:
+            per_img_mean = per_img[:,:,0].mean()
+            sum += per_img_mean
+            count += 1
+        img_mean = sum / count
+        img = img - img_mean
+        mask = mask / 255
+        mask[mask > 0.5] = 1
+        mask[mask <= 0.5] = 0
     return (img,mask)
 
 
@@ -86,11 +94,17 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict,image
         yield (img,mask)
 
 
-
 def testGenerator(test_path,num_image = 30,target_size = (512,512),flag_multi_class = False,as_gray = True):
+    sum = 0
+    count = 0
     for i in range(num_image):
         img = io.imread(os.path.join(test_path,"%d.bmp"%i),as_gray = as_gray)
-        img = img / 255
+        sum += img.mean()
+        count += 1
+    img_mean = sum / count
+    for i in range(num_image):
+        img = io.imread(os.path.join(test_path,"%d.bmp"%i),as_gray = as_gray)
+        img = img - img_mean
         img = trans.resize(img,target_size)
         img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
         img = np.reshape(img,(1,)+img.shape)
@@ -122,8 +136,9 @@ def labelVisualize(num_class,color_dict,img):
     return img_out / 255
 
 
-
 def saveResult(save_path,npyfile,flag_multi_class = False,num_class = 2):
     for i,item in enumerate(npyfile):
         img = labelVisualize(num_class,COLOR_DICT,item) if flag_multi_class else item[:,:,0]
+        img[img<=0.5] = 0
+        img[img>0.5] = 1
         io.imsave(os.path.join(save_path,"%d_predict.png"%i),img)
