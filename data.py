@@ -1,5 +1,6 @@
 from __future__ import print_function
 from keras.preprocessing.image import ImageDataGenerator
+import keras.backend as K
 import numpy as np 
 import os
 import glob
@@ -142,3 +143,11 @@ def saveResult(save_path,npyfile,flag_multi_class = False,num_class = 2):
         img[img<=0.5] = 0
         img[img>0.5] = 1
         io.imsave(os.path.join(save_path,"%d_predict.png"%i),img)
+
+
+def meanIOU(y_true, y_pred):
+    y_pred = K.cast(K.greater(y_pred, 0.5), K.floatx())
+    y_true = K.cast(K.greater(y_true, 0.5), K.floatx())
+    intersection = K.sum(y_true * y_pred)
+    union = K.sum(y_true) + K.sum(y_pred) - intersection
+    return K.switch(K.equal(union, 0), 1.0, intersection / union)

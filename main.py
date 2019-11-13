@@ -4,6 +4,7 @@ import os
 from keras.models import load_model
 import tensorflow as tf
 import keras.backend.tensorflow_backend as KTF
+from data import meanIOU
 
 # 指定显卡
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -21,13 +22,21 @@ data_gen_args = dict(rotation_range=0.2,
                     horizontal_flip=True,
                     fill_mode='nearest')
 # data_gen_args = dict()
-myGene = trainGenerator(4,'data/thyroid/train','image','label',data_gen_args,save_to_dir=None,target_size=(512,512))
+myGene = trainGenerator(6,'data/thyroid/train','image','label',data_gen_args,save_to_dir=None,target_size=(512,512))
 
 model = unet()
+
+if os.path.exists("unet_thyroid.hdf5.txt"):
+    os.remove("unet_thyroid.hdf5.txt")
+with open("unet_thyroid.hdf5.txt",'w') as fh:
+    model.summary(positions=[.3, .55, .67, 1.], print_fn=lambda x: fh.write(x + '\n'))
+
 model_checkpoint = ModelCheckpoint('unet_thyroid.hdf5', monitor='loss',verbose=1, save_best_only=True)
 model.fit_generator(myGene,steps_per_epoch=300,epochs=10,callbacks=[model_checkpoint])
 
-# model = load_model('unet_thyroid.hdf5')
+# model = load_model('unet_thyroid.hdf5', custom_objects={'meanIOU':meanIOU})
 testGene = testGenerator("data/thyroid/test",num_image=59,target_size=(512,512))
 results = model.predict_generator(testGene,59,verbose=1)
 saveResult("data/thyroid/test",results)
+
+import test
