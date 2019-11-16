@@ -7,6 +7,7 @@ import glob
 import skimage.io as io
 import skimage.transform as trans
 import cv2
+import random
 
 Sky = [128,128,128]
 Building = [128,0,0]
@@ -39,20 +40,70 @@ def adjustData(img,mask,flag_multi_class,num_class):
         new_mask = np.reshape(new_mask,(new_mask.shape[0],new_mask.shape[1]*new_mask.shape[2],new_mask.shape[3])) if flag_multi_class else np.reshape(new_mask,(new_mask.shape[0]*new_mask.shape[1],new_mask.shape[2]))
         mask = new_mask
     elif(np.max(img) > 1):
-        # 减去每个batch的图像的均值
-        sum = 0
-        count = 0
-        for per_img in img:
-            per_img_mean = per_img[:,:,0].mean()
-            sum += per_img_mean
-            count += 1
-        img_mean = sum / count
-        img = img - img_mean
+        # 每个图像减去训练集图像的均值再除以标准差
+        img = (img - 68.58) / 46.29
         mask = mask / 255
         mask[mask > 0.5] = 1
         mask[mask <= 0.5] = 0
     return (img,mask)
 
+
+def my_train_data_loader(batch_size, num_image, train_path, image_folder, mask_folder, target_size=(128,128), as_gray=True):
+    for i in range(num_image):
+        crop_rows, crop_cols = target_size
+        batch = np.array((batch_size, crop_cols, crop_rows))
+        img = io.imread(os.path.join(train_path, image_folder, "%d.bmp"%i),as_gray = as_gray)
+        mask = io.imread(os.path.join(train_path, mask_folder, "%d.bmp"%i),as_gray = as_gray)
+        img = (img - 68.58) / 46.29
+        mask = mask / 255
+        mask[mask > 0.5] = 1
+        mask[mask <= 0.5] = 0
+        batch_img, batch_mask = [], []
+        input_rows, input_cols = img.shape
+        for _ in range(batch_size):
+            start_x = random.randint(0, input_rows-crop_rows-1)
+            start_y = random.randint(0, input_cols-crop_cols-1)
+            crop_patch = img[start_x:start_x+crop_rows, start_y:start_y+crop_cols]
+            crop_patch = np.reshape(crop_patch,crop_patch.shape+(1,))
+            crop_mask = mask[start_x:start_x+crop_rows, start_y:start_y+crop_cols]
+            crop_mask = np.reshape(crop_mask,crop_mask.shape+(1,))
+            batch_img.append(crop_patch)
+            batch_mask.append(crop_mask)
+        batch_img, batch_mask = np.array(batch_img), np.array(batch_mask)
+        yield (batch_img, batch_mask)
+
+
+def my_test_data_loader(num_image, test_path, as_gray=True):
+    for i in range(num_image):
+        img = io.imread(os.path.join(test_path,"%d.bmp"%i),as_gray = as_gray)
+        img = (img - 68.58) / 46.29
+        yield img
+
+
+def preddict_single_image(model, image, target_size=(128,128)):
+    crop_rows, crop_cols = target_size
+    input_rows, input_cols = image.shape
+    x1, y1, dx, dy, stride = 0, 0, crop_rows, crop_cols, 16
+    pred_cnt = np.zeros((input_rows, input_cols, 1), dtype=np.int8)
+    pred_result = np.zeros((input_rows, input_cols, 1))
+    while x1 <= input_rows-dx:
+        while y1 <= input_cols-dy:
+            crop_patch = image[x1:x1+dx, y1:y1+dy]
+            crop_patch = np.reshape(crop_patch,crop_patch.shape+(1,))
+            crop_patch = np.reshape(crop_patch,(1,)+crop_patch.shape)
+            crop_result = model.predict(crop_patch)
+            crop_result = np.reshape(crop_result, (crop_rows, crop_cols, 1))
+            crop_result[crop_result > 0.5] = 1
+            crop_result[crop_result <= 0.5] = 0
+            pred_cnt[x1:x1+dx, y1:y1+dy] += 1
+            pred_result[x1:x1+dx, y1:y1+dy] += crop_result
+            y1 += stride
+        y1 = 0
+        x1 += stride
+    pred_result = pred_result/pred_cnt
+    pred_result[pred_result > 0.5] = 1
+    pred_result[pred_result <= 0.5] = 0
+    return pred_result
 
 
 def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict,image_color_mode = "grayscale",
@@ -96,16 +147,9 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict,image
 
 
 def testGenerator(test_path,num_image = 30,target_size = (512,512),flag_multi_class = False,as_gray = True):
-    sum = 0
-    count = 0
     for i in range(num_image):
         img = io.imread(os.path.join(test_path,"%d.bmp"%i),as_gray = as_gray)
-        sum += img.mean()
-        count += 1
-    img_mean = sum / count
-    for i in range(num_image):
-        img = io.imread(os.path.join(test_path,"%d.bmp"%i),as_gray = as_gray)
-        img = img - img_mean
+        img = (img - 68.58) / 46.29
         img = trans.resize(img,target_size)
         img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
         img = np.reshape(img,(1,)+img.shape)

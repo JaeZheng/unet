@@ -22,9 +22,9 @@ data_gen_args = dict(rotation_range=0.2,
                     horizontal_flip=True,
                     fill_mode='nearest')
 # data_gen_args = dict()
-myGene = trainGenerator(6,'data/thyroid/train','image','label',data_gen_args,save_to_dir=None,target_size=(512,512))
+myGene = trainGenerator(6,'data/thyroid/train','image','label',data_gen_args,save_to_dir=None,target_size=(400,496))
 
-model = unet()
+model = unet(input_size=(400,496,1))
 
 if os.path.exists("unet_thyroid.hdf5.txt"):
     os.remove("unet_thyroid.hdf5.txt")
@@ -35,7 +35,7 @@ model_checkpoint = ModelCheckpoint('unet_thyroid.hdf5', monitor='loss',verbose=1
 model.fit_generator(myGene,steps_per_epoch=300,epochs=10,callbacks=[model_checkpoint])
 
 # model = load_model('unet_thyroid.hdf5', custom_objects={'meanIOU':meanIOU})
-testGene = testGenerator("data/thyroid/test",num_image=59,target_size=(512,512))
+testGene = testGenerator("data/thyroid/test", num_image=59,target_size=(400,496))
 results = model.predict_generator(testGene,59,verbose=1)
 saveResult("data/thyroid/test",results)
 
