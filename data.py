@@ -49,28 +49,31 @@ def adjustData(img,mask,flag_multi_class,num_class):
 
 
 def my_train_data_loader(batch_size, num_image, train_path, image_folder, mask_folder, target_size=(128,128), as_gray=True):
-    for i in range(num_image):
-        crop_rows, crop_cols = target_size
-        batch = np.array((batch_size, crop_cols, crop_rows))
-        img = io.imread(os.path.join(train_path, image_folder, "%d.bmp"%i),as_gray = as_gray)
-        mask = io.imread(os.path.join(train_path, mask_folder, "%d.bmp"%i),as_gray = as_gray)
-        img = (img - 68.58) / 46.29
-        mask = mask / 255
-        mask[mask > 0.5] = 1
-        mask[mask <= 0.5] = 0
-        batch_img, batch_mask = [], []
-        input_rows, input_cols = img.shape
-        for _ in range(batch_size):
-            start_x = random.randint(0, input_rows-crop_rows-1)
-            start_y = random.randint(0, input_cols-crop_cols-1)
-            crop_patch = img[start_x:start_x+crop_rows, start_y:start_y+crop_cols]
-            crop_patch = np.reshape(crop_patch,crop_patch.shape+(1,))
-            crop_mask = mask[start_x:start_x+crop_rows, start_y:start_y+crop_cols]
-            crop_mask = np.reshape(crop_mask,crop_mask.shape+(1,))
-            batch_img.append(crop_patch)
-            batch_mask.append(crop_mask)
-        batch_img, batch_mask = np.array(batch_img), np.array(batch_mask)
-        yield (batch_img, batch_mask)
+    while True:
+        for i in range(num_image):
+            crop_rows, crop_cols = target_size
+            batch = np.array((batch_size, crop_cols, crop_rows))
+            img = io.imread(os.path.join(train_path, image_folder, "%d.bmp"%i),as_gray = as_gray)
+            mask = io.imread(os.path.join(train_path, mask_folder, "%d.bmp"%i),as_gray = as_gray)
+            img = (img - 68.58) / 46.29
+            mask = mask / 255
+            mask[mask > 0.5] = 1
+            mask[mask <= 0.5] = 0
+            batch_img, batch_mask = [], []
+            input_rows, input_cols = img.shape
+            for _ in range(batch_size):
+                start_x = random.randint(0, input_rows-crop_rows-1)
+                start_y = random.randint(0, input_cols-crop_cols-1)
+                crop_patch = img[start_x:start_x+crop_rows, start_y:start_y+crop_cols]
+                crop_patch = np.reshape(crop_patch,crop_patch.shape+(1,))
+                crop_mask = mask[start_x:start_x+crop_rows, start_y:start_y+crop_cols]
+                crop_mask = np.reshape(crop_mask,crop_mask.shape+(1,))
+                batch_img.append(crop_patch)
+                batch_mask.append(crop_mask)
+            batch_img, batch_mask = np.array(batch_img), np.array(batch_mask)
+            if i == num_image-1:
+                i = 0
+            yield (batch_img, batch_mask)
 
 
 def my_test_data_loader(num_image, test_path, as_gray=True):
@@ -80,7 +83,7 @@ def my_test_data_loader(num_image, test_path, as_gray=True):
         yield img
 
 
-def preddict_single_image(model, image, target_size=(128,128)):
+def predict_single_image(model, image, target_size=(128,128)):
     crop_rows, crop_cols = target_size
     input_rows, input_cols = image.shape
     x1, y1, dx, dy, stride = 0, 0, crop_rows, crop_cols, 16
@@ -137,13 +140,32 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict,image
         save_prefix  = mask_save_prefix,
         seed = seed)
     train_generator = zip(image_generator, mask_generator)
+    batch_size = 32
+    target_size = (128,128)
     for (img,mask) in train_generator:
-        # cv2.imwrite("./tmp/img.png", img[0])
-        # cv2.imwrite("./tmp/mask.png", mask[0])
-        img,mask = adjustData(img,mask,flag_multi_class,num_class)
-        # cv2.imwrite("./tmp/img_adjust.png", img[0])
-        # cv2.imwrite("./tmp/mask_adjust.png", mask[0])
-        yield (img,mask)
+        # img,mask = adjustData(img,mask,flag_multi_class,num_class)
+        crop_rows, crop_cols = target_size
+        input_rows, input_cols = img.shape[1], img.shape[2]
+        img = np.reshape(img, (input_rows, input_cols))
+        mask = np.reshape(mask, (input_rows, input_cols))
+        batch = np.array((batch_size, crop_cols, crop_rows))
+        img = (img - 68.58) / 46.29
+        mask = mask / 255
+        mask[mask > 0.5] = 1
+        mask[mask <= 0.5] = 0
+        batch_img, batch_mask = [], []
+        for _ in range(batch_size):
+            start_x = random.randint(0, input_rows-crop_rows-1)
+            start_y = random.randint(0, input_cols-crop_cols-1)
+            crop_patch = img[start_x:start_x+crop_rows, start_y:start_y+crop_cols]
+            crop_patch = np.reshape(crop_patch,crop_patch.shape+(1,))
+            crop_mask = mask[start_x:start_x+crop_rows, start_y:start_y+crop_cols]
+            crop_mask = np.reshape(crop_mask,crop_mask.shape+(1,))
+            batch_img.append(crop_patch)
+            batch_mask.append(crop_mask)
+        batch_img, batch_mask = np.array(batch_img), np.array(batch_mask)
+        yield (batch_img,batch_mask)
+        # yield (img,mask)
 
 
 def testGenerator(test_path,num_image = 30,target_size = (512,512),flag_multi_class = False,as_gray = True):
@@ -187,6 +209,10 @@ def saveResult(save_path,npyfile,flag_multi_class = False,num_class = 2):
         img[img<=0.5] = 0
         img[img>0.5] = 1
         io.imsave(os.path.join(save_path,"%d_predict.png"%i),img)
+
+
+def saveSingleResult(save_path,result,index):
+    io.imsave(os.path.join(save_path,"%d_predict.png"%index),result)
 
 
 def meanIOU(y_true, y_pred):

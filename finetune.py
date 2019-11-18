@@ -22,7 +22,7 @@ KTF.set_session(session)
 input_channels, input_rows, input_cols, input_deps = 1, 64, 64, 32
 num_class, activate = 2, 'sigmoid'
 weight_dir = 'Vnet-genesis_thyroid_us.h5'
-models_genesis = unet(input_size=(400,496,1))
+models_genesis = unet(input_size=(128,128,1))
 print("Load pre-trained Models Genesis weights from {}".format(weight_dir))
 models_genesis.load_weights(weight_dir)
 x = models_genesis.get_layer('conv2d_23').output
@@ -42,15 +42,27 @@ data_gen_args = dict(rotation_range=0.2,
                     horizontal_flip=True,
                     fill_mode='nearest')
 # data_gen_args = dict()
-myGene = trainGenerator(8,'data/thyroid/train/','image','label',data_gen_args,save_to_dir = None, target_size=(400,496))
+myGene = trainGenerator(1,'data/thyroid/train/','image','label',data_gen_args,save_to_dir = None, target_size=(400,496))
+# myGene = my_train_data_loader(16,50,'data/thyroid/train','image','label',target_size=(128,128))
 
 # model = unet(pretrained_weights='Vnet-genesis_thyroid_us.h5')
 model_checkpoint = ModelCheckpoint('finetune_unet_thyroid.hdf5', monitor='loss',verbose=1, save_best_only=True)
-model.fit_generator(myGene,steps_per_epoch=300,epochs=200,callbacks=[model_checkpoint])
+model.fit_generator(myGene,steps_per_epoch=500,epochs=500,callbacks=[model_checkpoint])
+
+if os.path.exists("finetune_unet_thyroid.hdf5.txt"):
+    os.remove("finetune_unet_thyroid.hdf5.txt")
+with open("finetune_unet_thyroid.hdf5.txt",'w') as fh:
+    model.summary(positions=[.3, .55, .67, 1.], print_fn=lambda x: fh.write(x + '\n'))
 
 # model = load_model('unet_thyroid.hdf5')
-testGene = testGenerator("data/thyroid/test",num_image=59, target_size=(400,496))
-results = model.predict_generator(testGene,59,verbose=1)
-saveResult("data/thyroid/test",results)
+# testGene = testGenerator("data/thyroid/test",num_image=59, target_size=(400,496))
+# results = model.predict_generator(testGene,59,verbose=1)
+# saveResult("data/thyroid/test",results)
+testGene = my_test_data_loader(59, "data/thyroid/test")
+cnt = 0
+for img in testGene:
+    result = predict_single_image(model, img, target_size=(128,128))
+    saveSingleResult("data/thyroid/test", result, cnt)
+    cnt += 1
 
 import test
